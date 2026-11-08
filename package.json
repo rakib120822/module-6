@@ -1,0 +1,24 @@
+{
+  "name": "module-6",
+  "version": "1.0.0",
+  "description": "Module 6 lab notes and architecture documentation",
+  "private": true,
+  "scripts": {
+    "lint": "markdownlint \"**/*.md\" \"#node_modules\""
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/rakib120822/module-6.git"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "type": "commonjs",
+  "bugs": {
+    "url": "https://github.com/rakib120822/module-6/issues"
+  },
+  "homepage": "https://github.com/rakib120822/module-6#readme",
+  "devDependencies": {
+    "markdownlint-cli": "^0.50.0"
+  }
+}
