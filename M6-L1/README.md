@@ -658,7 +658,7 @@ Open a terminal and start the server process in the background on port 5000:
 node server.js &
 ```
 
-![Server started](images/server start.png)
+![Server started](images/server%20start.png)
 
 Retrieve the private IP address of your virtual machine:
 
@@ -666,7 +666,7 @@ Retrieve the private IP address of your virtual machine:
 hostname -I | awk '{print $1}'
 ```
 
-![IP address](images/IP address.png)
+![IP address](images/IP%20address.png)
 
 Configure the Poridhi Load Balancer:
 
@@ -746,7 +746,7 @@ curl -i -X POST http://localhost:5000/api/v1/orders \
   -d '{"item_id": 402, "quantity": 2, "amount": 199.00}'
 ```
 
-![POST request](images/post request.png)
+![POST request](images/post%20request.png)
 
 **Expected output:**
 
@@ -771,7 +771,7 @@ Now retrieve the created resource using the URI returned in the `Location` heade
 curl -i http://localhost:5000/api/v1/orders/126
 ```
 
-![GET request](images/get request.png)
+![GET request](images/get%20request.png)
 
 **Expected output:**
 
@@ -832,7 +832,7 @@ Retrieve the first page with `limit=3`:
 curl -s "http://localhost:5000/api/v1/orders?limit=3" | jq .
 ```
 
-![Pagination part 1](images/pagination part-1.png)
+![Pagination part 1](images/pagination%20part-1.png)
 
 **Expected output:**
 
@@ -857,7 +857,7 @@ Retrieve the second page using `cursor=103`:
 curl -s "http://localhost:5000/api/v1/orders?limit=3&cursor=103" | jq .
 ```
 
-![Pagination part 2](images/pagination part-2.png)
+![Pagination part 2](images/pagination%20part-2.png)
 
 **Expected output:**
 
