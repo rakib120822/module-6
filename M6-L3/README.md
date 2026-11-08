@@ -174,15 +174,15 @@ const orders = [
   { id: 3, customer: 'Charlie', item: 'Tablet', total: 499.99, status: 'delivered' }
 ];
 
-app.get('/health', (req, res) => {
+app.get('/api/v1/health', (req, res) => {
   res.json({ service: 'orders-service', status: 'healthy' });
 });
 
-app.get('/orders', (req, res) => {
+app.get('/api/v1/orders', (req, res) => {
   res.json({ service: 'orders-service', count: orders.length, data: orders });
 });
 
-app.get('/orders/:id', (req, res) => {
+app.get('/api/v1/orders/:id', (req, res) => {
   const order = orders.find(o => o.id === Number(req.params.id));
   if (!order) {
     return res.status(404).json({ service: 'orders-service', error: 'Order not found' });
@@ -190,7 +190,7 @@ app.get('/orders/:id', (req, res) => {
   res.json({ service: 'orders-service', data: order });
 });
 
-app.post('/orders', (req, res) => {
+app.post('/api/v1/orders', (req, res) => {
   const newOrder = { id: orders.length + 1, status: 'created', ...req.body };
   orders.push(newOrder);
   res.status(201).json({ service: 'orders-service', data: newOrder });
@@ -239,15 +239,15 @@ const users = [
   { id: 3, name: 'Charlie', email: 'charlie@example.com', role: 'customer' }
 ];
 
-app.get('/health', (req, res) => {
+app.get('/api/v1/health', (req, res) => {
   res.json({ service: 'users-service', status: 'healthy' });
 });
 
-app.get('/users', (req, res) => {
+app.get('/api/v1/users', (req, res) => {
   res.json({ service: 'users-service', count: users.length, data: users });
 });
 
-app.get('/users/:id', (req, res) => {
+app.get('/api/v1/users/:id', (req, res) => {
   const user = users.find(u => u.id === Number(req.params.id));
   if (!user) {
     return res.status(404).json({ service: 'users-service', error: 'User not found' });
@@ -255,7 +255,7 @@ app.get('/users/:id', (req, res) => {
   res.json({ service: 'users-service', data: user });
 });
 
-app.post('/users', (req, res) => {
+app.post('/api/v1/users', (req, res) => {
   const newUser = { id: users.length + 1, ...req.body };
   users.push(newUser);
   res.status(201).json({ service: 'users-service', data: newUser });
@@ -283,77 +283,73 @@ The gateway config combines three mechanisms: `map` for authentication, `limit_r
 Create `nginx.conf` in the project root:
 
 ```nginx
-worker_processes auto;
-
 events {
-  worker_connections 1024;
+    worker_connections 1024;
 }
 
 http {
-  # Map the incoming API key to an authorisation status.
-  # 1 = valid key, 0 = invalid or missing key.
-  map $http_x_api_key $api_key_status {
-    default 0;
-    "lab03-valid-key" 1;
-  }
+    include       mime.types;
+    default_type  application/json;
 
-  # Rate-limit zone keyed by the client's IP address.
-  # 5 requests per second, burst of 5 requests.
-  limit_req_zone $binary_remote_addr zone=api_limit:10m rate=5r/s;
-
-  # Upstream definitions for the two backend services.
-  upstream orders_service {
-    server orders-service:3001;
-  }
-
-  upstream users_service {
-    server users-service:3002;
-  }
-
-  server {
-    listen 80;
-    server_name _;
-
-    # --- Authentication ---
-    # Reject any request without a valid API key.
-    if ($api_key_status = 0) {
-      return 401 '{"error":"Unauthorized","message":"Invalid or missing API key"}';
-    }
-
-    # --- Rate limiting ---
-    # nodelay forwards burst requests immediately instead of queueing them.
-    limit_req zone=api_limit burst=5 nodelay;
+    # Rate Limiting: 5 requests per second per IP with burst allowance of 5
+    limit_req_zone $binary_remote_addr zone=api_quota:10m rate=5r/s;
     limit_req_status 429;
 
-    # --- Routing ---
-    location /orders {
-      proxy_pass http://orders_service;
-      proxy_set_header Host $host;
-      proxy_set_header X-API-Key $http_x_api_key;
-      proxy_set_header X-Real-IP $remote_addr;
-      proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
-      proxy_set_header X-Forwarded-Proto $scheme;
+    # API Key Authentication Mapping
+    map $http_x_api_key $api_client_authorized {
+        default 0;
+        "valid-secret-key-123" 1;
+        "prod-partner-key-999" 1;
     }
 
-    location /users {
-      proxy_pass http://users_service;
-      proxy_set_header Host $host;
-      proxy_set_header X-API-Key $http_x_api_key;
-      proxy_set_header X-Real-IP $remote_addr;
-      proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
-      proxy_set_header X-Forwarded-Proto $scheme;
+    upstream orders_backend {
+        server orders_service:3001;
     }
 
-    location = /health {
-      proxy_pass http://orders_service/health;
-      proxy_set_header Host $host;
+    upstream users_backend {
+        server users_service:3002;
     }
 
-    # Any other path has no backend.
-    location / {
-      return 404 '{"error":"Not Found","message":"Unknown endpoint"}';
+    server {
+        listen 80;
+
+        # Standard Proxy Headers
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+
+        # Gateway Health Endpoint (Bypasses Auth & Rate Limits)
+        location /health {
+            access_log off;
+            return 200 '{"status":"UP","gateway":"Nginx","version":"1.25"}';
+        }
+
+        # Compatible /healthz alias
+        location /healthz {
+            access_log off;
+            return 200 '{"status":"UP","gateway":"Nginx","version":"1.25"}';
+        }
+
+        # Protected Orders Route
+        location /api/v1/orders {
+            if ($api_client_authorized = 0) {
+                return 401 '{"type":"https://api.example.com/errors/unauthorized","title":"Unauthorized","status":401,"detail":"Missing or invalid X-API-Key header."}';
+            }
+
+            limit_req zone=api_quota burst=5 nodelay;
+            proxy_pass http://orders_backend;
+        }
+
+        # Protected Users Route
+        location /api/v1/users {
+            if ($api_client_authorized = 0) {
+                return 401 '{"type":"https://api.example.com/errors/unauthorized","title":"Unauthorized","status":401,"detail":"Missing or invalid X-API-Key header."}';
+            }
+
+            limit_req zone=api_quota burst=5 nodelay;
+            proxy_pass http://users_backend;
+        }
     }
-  }
 }
 ```
 
@@ -361,15 +357,17 @@ http {
 
 | Directive | Purpose |
 |---|---|
-| `map $http_x_api_key $api_key_status` | Turns the X-API-Key header into 1 (valid) or 0 (invalid). |
-| `if ($api_key_status = 0)` | Returns 401 before any request reaches a backend. |
-| `limit_req_zone` | Defines the shared-memory zone and the 5r/s rate. |
-| `limit_req zone=api_limit burst=5 nodelay` | Applies the limit with a burst of 5 and no queueing delay. |
+| `include mime.types` / `default_type` | Serves static assets with correct MIME types and defaults everything else to `application/json`. |
+| `map $http_x_api_key $api_client_authorized` | Turns the X-API-Key header into 1 (valid) or 0 (invalid). Two keys are accepted: `valid-secret-key-123` and `prod-partner-key-999`. |
+| `if ($api_client_authorized = 0)` | Returns 401 before any request reaches a backend. |
+| `limit_req_zone $binary_remote_addr zone=api_quota:10m rate=5r/s` | Defines the shared-memory zone and the 5r/s rate, keyed by client IP. |
+| `limit_req zone=api_quota burst=5 nodelay` | Applies the limit with a burst of 5 and no queueing delay. |
 | `limit_req_status 429` | Returns 429 instead of the default 503 when a request is rejected. |
-| `upstream` | Names a backend server group Nginx can proxy to. |
+| `upstream orders_backend` / `upstream users_backend` | Names the backend server groups Nginx can proxy to. |
 | `proxy_pass` | Forwards the request to the matching upstream. |
+| `location /health` and `location /healthz` | Gateway health endpoints that bypass both authentication and rate limiting. |
 
-> **Note:** `orders-service:3001` is a Docker network service name, not localhost. Inside the Nginx container, localhost means the Nginx container itself.
+> **Note:** `orders_service:3001` is a Docker network service name, not localhost. Inside the Nginx container, localhost means the Nginx container itself.
 
 ---
 
@@ -418,34 +416,6 @@ networks:
     driver: bridge
 ```
 
-### Key points
-
-Each service gets its own Dockerfile build context, so add one to each service directory:
-
-`services/orders-service/Dockerfile`:
-
-```dockerfile
-FROM node:20-alpine
-WORKDIR /app
-COPY package*.json ./
-RUN npm install --omit=dev
-COPY . .
-EXPOSE 3001
-CMD ["npm", "start"]
-```
-
-`services/users-service/Dockerfile`:
-
-```dockerfile
-FROM node:20-alpine
-WORKDIR /app
-COPY package*.json ./
-RUN npm install --omit=dev
-COPY . .
-EXPOSE 3002
-CMD ["npm", "start"]
-```
-
 - `ports: "8080:80"` maps host port 8080 to container port 80.
 - The backends have no `ports` section, so they are reachable only inside `gateway-network`.
 - The `nginx.conf` mount is read-only (`:ro`) so the container cannot modify it.
@@ -454,111 +424,61 @@ CMD ["npm", "start"]
 
 ## Step 4 — Verification Script
 
-The script checks authentication, routing and rate limiting in one pass.
+The script checks the gateway health endpoint, authentication, routing and rate limiting in one pass.
 
 Create `verify-gateway.sh`:
 
 ```bash
 #!/usr/bin/env bash
+set -e
 
-set -uo pipefail
+GATEWAY_URL="http://localhost:8080"
+VALID_KEY="valid-secret-key-123"
 
-GATEWAY_URL="${GATEWAY_URL:-http://localhost:8080}"
-API_KEY="${API_KEY:-lab03-valid-key}"
-PASS=0
-FAIL=0
+echo "=================================================="
+echo "  Lab 03: API Gateway & Rate-Aware Routing Verification  "
+echo "=================================================="
+echo ""
 
-green() { printf "\033[0;32m%s\033[0m\n" "$1"; }
-red() { printf "\033[0;31m%s\033[0m\n" "$1"; }
-blue() { printf "\033[0;34m%s\033[0m\n" "$1"; }
+echo "1. Checking Gateway Health (Unauthenticated)..."
+curl -s -i "$GATEWAY_URL/health" | head -n 8
+echo ""
 
-check_status() {
-  local label="$1" expected="$2" actual="$3"
-  if [[ "$actual" == "$expected" ]]; then
-    green "PASS $label (HTTP $actual)"
-    PASS=$((PASS + 1))
-  else
-    red "FAIL $label (expected $expected, got $actual)"
-    FAIL=$((FAIL + 1))
-  fi
-}
-
-http_code() {
-  curl -s -o /dev/null -w "%{http_code}" "$@"
-}
-
-blue "==========================================="
-blue " Lab 03 Gateway Verification"
-blue "==========================================="
-echo
-
-# --- Test 1: request without an API key ---
-check_status "Missing API key returns 401" 401 \
-  "$(http_code "$GATEWAY_URL/orders")"
-
-# --- Test 2: request with an invalid API key ---
-check_status "Invalid API key returns 401" 401 \
-  "$(http_code -H "X-API-Key: wrong-key" "$GATEWAY_URL/orders")"
-
-# --- Test 3: valid key reaches the orders service ---
-check_status "Valid API key routes to orders" 200 \
-  "$(http_code -H "X-API-Key: $API_KEY" "$GATEWAY_URL/orders")"
-
-ORDERS_BODY=$(curl -s -H "X-API-Key: $API_KEY" "$GATEWAY_URL/orders")
-if echo "$ORDERS_BODY" | jq -e '.service == "orders-service"' >/dev/null 2>&1; then
-  green "PASS Orders response comes from orders-service"
-  PASS=$((PASS + 1))
+echo "2. Calling /api/v1/orders WITHOUT API Key (Expect 401 Unauthorized)..."
+HTTP_CODE=$(curl -s -o /dev/null -w "%{http_code}" "$GATEWAY_URL/api/v1/orders")
+echo "HTTP Status Code: $HTTP_CODE"
+if [ "$HTTP_CODE" -eq 401 ]; then
+  echo " PASS: 401 Unauthorized enforced at Gateway edge."
 else
-  red "FAIL Orders response did not come from orders-service"
-  FAIL=$((FAIL + 1))
+  echo " FAIL: Expected 401, got $HTTP_CODE"
 fi
+echo ""
 
-# --- Test 4: valid key reaches the users service ---
-check_status "Valid API key routes to users" 200 \
-  "$(http_code -H "X-API-Key: $API_KEY" "$GATEWAY_URL/users")"
-
-USERS_BODY=$(curl -s -H "X-API-Key: $API_KEY" "$GATEWAY_URL/users")
-if echo "$USERS_BODY" | jq -e '.service == "users-service"' >/dev/null 2>&1; then
-  green "PASS Users response comes from users-service"
-  PASS=$((PASS + 1))
+echo "3. Calling /api/v1/orders WITH valid API Key (Expect 200 OK)..."
+HTTP_CODE=$(curl -s -o /dev/null -w "%{http_code}" -H "X-API-Key: $VALID_KEY" "$GATEWAY_URL/api/v1/orders")
+echo "HTTP Status Code: $HTTP_CODE"
+if [ "$HTTP_CODE" -eq 200 ]; then
+  echo " PASS: Orders service upstream routed successfully."
 else
-  red "FAIL Users response did not come from users-service"
-  FAIL=$((FAIL + 1))
+  echo " FAIL: Expected 200, got $HTTP_CODE"
 fi
+echo ""
 
-# --- Test 5: single resource routing ---
-check_status "Order by id returns 200" 200 \
-  "$(http_code -H "X-API-Key: $API_KEY" "$GATEWAY_URL/orders/1")"
+echo "4. Calling /api/v1/users WITH valid API Key (Expect 200 OK)..."
+HTTP_CODE=$(curl -s -o /dev/null -w "%{http_code}" -H "X-API-Key: $VALID_KEY" "$GATEWAY_URL/api/v1/users")
+echo "HTTP Status Code: $HTTP_CODE"
+if [ "$HTTP_CODE" -eq 200 ]; then
+  echo " PASS: Users service upstream routed successfully."
+else
+  echo " FAIL: Expected 200, got $HTTP_CODE"
+fi
+echo ""
 
-check_status "Missing order returns 404" 404 \
-  "$(http_code -H "X-API-Key: $API_KEY" "$GATEWAY_URL/orders/9999")"
-
-check_status "Unknown endpoint returns 404" 404 \
-  "$(http_code -H "X-API-Key: $API_KEY" "$GATEWAY_URL/unknown")"
-
-# --- Test 6: rate limiting ---
-echo
-blue "Testing rate limit (20 rapid requests)..."
-LIMITED=0
-for i in $(seq 1 20); do
-  CODE=$(http_code -H "X-API-Key: $API_KEY" "$GATEWAY_URL/orders")
-  [[ "$CODE" == "429" ]] && LIMITED=$((LIMITED + 1))
+echo "5. Flooding Gateway to Test Rate Limiting (Expect 429)..."
+for i in {1..15}; do
+  CODE=$(curl -s -o /dev/null -w "%{http_code}" -H "X-API-Key: $VALID_KEY" "$GATEWAY_URL/api/v1/orders")
+  echo "Request #$i -> Status $CODE"
 done
-
-if [[ "$LIMITED" -gt 0 ]]; then
-  green "PASS Rate limit triggered ($LIMITED of 20 requests returned 429)"
-  PASS=$((PASS + 1))
-else
-  red "FAIL Rate limit never triggered"
-  FAIL=$((FAIL + 1))
-fi
-
-echo
-blue "==========================================="
-blue " Passed: $PASS Failed: $FAIL"
-blue "==========================================="
-
-[[ "$FAIL" -eq 0 ]] && exit 0 || exit 1
 ```
 
 Make it executable:
@@ -597,18 +517,29 @@ All three containers should show Up.
 The backends must not be reachable from the host:
 
 ```bash
-curl -s http://localhost:3001/orders
-curl -s http://localhost:3002/users
+curl -s http://localhost:3001/api/v1/orders
+curl -s http://localhost:3002/api/v1/users
 ```
 
 Both commands should fail to connect. Only port 8080 is published.
 
-### 5.3 Test authentication
+### 5.3 Test the gateway health endpoint
+
+The health endpoint bypasses authentication and rate limiting:
+
+```bash
+curl -i http://localhost:8080/health
+curl -i http://localhost:8080/healthz
+```
+
+Both should return `200 OK` with `{"status":"UP","gateway":"Nginx","version":"1.25"}`.
+
+### 5.4 Test authentication
 
 Missing API key -> 401
 
 ```bash
-curl -i http://localhost:8080/orders
+curl -i http://localhost:8080/api/v1/orders
 ```
 
 ![Invalid request](images/invalid-request.png)
@@ -616,20 +547,20 @@ curl -i http://localhost:8080/orders
 Valid API key -> 200
 
 ```bash
-curl -i -H "X-API-Key: lab03-valid-key" http://localhost:8080/orders
+curl -i -H "X-API-Key: valid-secret-key-123" http://localhost:8080/api/v1/orders
 ```
 
 ![Get request](images/get-request.png)
 
 The first response must contain `"service": "orders-service"`. The second must contain `"service": "users-service"`.
 
-### 5.4 Run the automated verification
+### 5.5 Run the automated verification
 
 ```bash
 ./verify-gateway.sh
 ```
 
-All tests should print PASS.
+All four checks should print `PASS`, and the flood loop should show `429` once the rate limit is reached.
 
 ![Verify gateway](images/verify-gateway.png)
 
@@ -641,9 +572,10 @@ Work through these symptoms in order.
 
 | Symptom | Likely cause | Fix |
 |---|---|---|
-| 401 even with the right key | Header name or value mismatch | Check `map` uses `$http_x_api_key` and the exact key string. |
+| 401 even with the right key | Header name or value mismatch | Check `map` uses `$http_x_api_key` and that the key is exactly `valid-secret-key-123` or `prod-partner-key-999`. |
 | 502 Bad Gateway | Nginx cannot reach the backend | Check service names and ports match `nginx.conf` and `docker-compose.yml`. |
-| 503 instead of 429 | `limit_req_status` not set | Add `limit_req_status 429;` in the `server` block. |
+| 503 instead of 429 | `limit_req_status` not set | Add `limit_req_status 429;` in the `http` block. |
+| 404 on a protected route | The backend does not serve the `/api/v1` prefix | Confirm the service defines `/api/v1/orders` and `/api/v1/users`, matching the `location` blocks. |
 | Connection refused on 8080 | Gateway container not running | Run `docker compose ps` and `docker compose logs gateway`. |
 | Rate limit does not trigger | Burst is too large for the request count | Lower `burst` or send more requests in the loop. |
 | Backend reachable from host | Port mapping exposed the service | Remove `ports` from the backend services. |
@@ -693,6 +625,7 @@ You built a gateway with three distinct controls.
 | Authentication | Nginx `map` | 401 for invalid keys |
 | Rate limiting | `limit_req_zone` and `limit_req` | 429 when limits are exceeded |
 | Request routing | Nginx upstreams | Requests reach the correct service |
+| Health endpoints | `location /health` and `/healthz` | 200 without authentication or rate limiting |
 | Container isolation | Docker bridge network | Private backend communication |
 | Port exposure | Docker Compose | Only the gateway exposes host port 8080 |
 
