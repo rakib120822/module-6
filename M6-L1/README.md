@@ -11,7 +11,7 @@
 ⠿You will first describe how the API should work in an openapi.yaml file. That file is the API contract: it documents the endpoints, required headers, request data, response data, and error formats. Then you will write a small Express server that follows the important rules in the contract.
 
 ⠿By the end of the lab, you will be able to:
-
+![Package screenshot](images/package.png)
 ⠿
 Create an order with POST /api/v1/orders.
 
