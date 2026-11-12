@@ -10,7 +10,7 @@ The deliverable is an automated test that proves the central claim: **two identi
 The stack is Node.js, Express, Redis 7, and Docker Compose.
 
 <p align="center">
-  <img src="images/loadbalancer-url.png" alt="Load Balancer Exposing the Idempotent Write Server" width="750">
+  <img src="images/lab02-architecture.png" alt="Idempotent Write Endpoint Architecture: Client, Load Balancer, Node.js Server, Redis Lock and Cache, Orders Database" width="750">
 </p>
 
 ## Why these tools?
@@ -633,7 +633,7 @@ node server.js &
 ```
 
 <p align="center">
-  <img src="images/step3-server-start.png" alt="Start Server" width="700">
+  <img src="images/step2-server-start.png" alt="Start Server" width="700">
 </p>
 
 **Expected output:**
@@ -651,6 +651,10 @@ Retrieve the private IP address of your virtual machine:
 hostname -I | awk '{print $1}'
 ```
 
+<p align="center">
+  <img src="images/step4-loadbalancer-modal.png" alt="Retrieving the Private IP Address of the Virtual Machine" width="700">
+</p>
+
 Configure the Poridhi Load Balancer:
 
 1. Open the **Load Balancer** modal in the Poridhi interface.
@@ -659,7 +663,7 @@ Configure the Poridhi Load Balancer:
 4. Click **Expose** to generate an active public URL.
 
 <p align="center">
-  <img src="images/step4-loadbalancer-modal.png" alt="Load Balancer Modal" width="700">
+  <img src="images/loadbalancer-url.png" alt="Load Balancer Modal Showing the Generated Public URL" width="700">
 </p>
 
 Open the generated Load Balancer URL in your web browser to confirm connectivity:
@@ -1026,17 +1030,18 @@ curl -i -X POST http://localhost:5000/api/v1/orders \
   -d '{"amount": -5, "description": "Negative Amount"}'
 ```
 
+<p align="center">
+  <img src="images/idempotency-test-check.png" alt="Invalid Order Amount Returns 400 Bad Request" width="700">
+</p>
+
 **Expected output:**
 
 ```text
 HTTP/1.1 400 Bad Request
+X-Cache: MISS
 Content-Type: application/json; charset=utf-8
 
-{
-  "title": "Invalid Order Amount",
-  "status": 400,
-  "detail": "The amount field must be a positive number."
-}
+{"title":"Invalid Order Amount","status":400,"detail":"The amount field must be a positive number."}
 ```
 
 Now reuse that same key with a corrected body:
@@ -1048,12 +1053,19 @@ curl -i -X POST http://localhost:5000/api/v1/orders \
   -d '{"amount": 42.00, "description": "Corrected Order"}'
 ```
 
+<p align="center">
+  <img src="images/create-after-idempotency.png" alt="Corrected Request with the Same Key Returns 201 Created" width="700">
+</p>
+
 **Expected output:**
 
 ```text
 HTTP/1.1 201 Created
 X-Cache: MISS
 Location: /api/v1/orders/2
+Content-Type: application/json; charset=utf-8
+
+{"id":2,"amount":42,"description":"Corrected Order","status":"COMPLETED","created_at":"2026-11-12T11:29:41.626Z"}
 ```
 
 > **What to Observe:** The second request returns `201 Created` with `X-Cache: MISS`, not `409 Conflict`. The 400 released the lock, so the same key was free to be used again.
