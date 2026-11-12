@@ -102,7 +102,7 @@ cd ~/lab01-contract-first-api
 ```
 
 <p align="center">
-  <img src="images/package.png" alt="Create Project Directory" width="700">
+  <img src="images/create-folder.png" alt="Create Project Directory" width="700">
 </p>
 
 Create a file named `package.json` with the following contents:
@@ -155,9 +155,10 @@ npm install
 **Expected output:**
 
 ```text
-added 96 packages in 3s
+added 123 packages, and audited 124 packages in 10s
 
-found 0 vulnerabilities
+28 packages are looking for funding
+  run `npm fund` for details
 ```
 
 ---
@@ -441,7 +442,7 @@ npm run validate
 ```
 
 <p align="center">
-  <img src="images/test.png" alt="Validate OpenAPI Specification" width="700">
+  <img src="images/openapi-validation.png" alt="Validate OpenAPI Specification" width="700">
 </p>
 
 **Expected output:**
@@ -460,6 +461,10 @@ cp openapi.yaml broken.yaml
 sed -i "s|#/components/schemas/CreateOrderRequest|#/components/schemas/DoesNotExist|" broken.yaml
 npx swagger-cli validate broken.yaml
 ```
+
+<p align="center">
+  <img src="images/openapi-break.png" alt="Invalid Reference Detected" width="700">
+</p>
 
 **Expected output:**
 
@@ -765,7 +770,7 @@ npm run generate
 ```
 
 <p align="center">
-  <img src="images/server start.png" alt="Generate Server Stubs" width="700">
+  <img src="images/stub-generate.png" alt="Generate Server Stubs" width="700">
 </p>
 
 **Expected output:**
@@ -783,6 +788,10 @@ Inspect what was produced:
 ```bash
 head -40 server.generated.js
 ```
+
+<p align="center">
+  <img src="images/stub-inspect.png" alt="Inspect Generated Stub" width="700">
+</p>
 
 **Expected output:**
 
@@ -832,6 +841,10 @@ sed -i 's/maximum: 50/maximum: 25/' openapi.yaml
 npm run generate
 grep "must be <= " server.generated.js
 ```
+
+<p align="center">
+  <img src="images/contract-output.png" alt="Contract Change Reflected in Generated Code" width="700">
+</p>
 
 **Expected output:**
 
@@ -1113,9 +1126,17 @@ hostname -I | awk '{print $1}'
 Configure the Poridhi Load Balancer:
 
 1. Open the **Load Balancer** modal in the Poridhi interface.
-2. Enter the IP address obtained from `hostname -I`.
-3. Set the target port to **5000**.
+2. Enter the IP address obtained from `hostname -I` in the **Enter IP** field.
+3. Enter **5000** in the **Enter Port** field.
 4. Click **Expose** to generate an active public URL.
+
+<p align="center">
+  <img src="images/load balancer.png" alt="Load Balancer IP and Port Entry" width="700">
+</p>
+
+<p align="center">
+  <img src="images/load balance 1.png" alt="Public Load Balancer URL" width="700">
+</p>
 
 <p align="center">
   <img src="images/step4-loadbalancer-modal.png" alt="Load Balancer Modal" width="700">
@@ -1198,7 +1219,7 @@ curl -i -X POST http://localhost:5000/api/v1/orders \
 ```
 
 <p align="center">
-  <img src="images/post request.png" alt="Test 2 Valid Order" width="700">
+  <img src="images/post-request.png" alt="Test 2 Valid Order" width="700">
 </p>
 
 **Expected output:**
@@ -1261,7 +1282,11 @@ curl -i "http://localhost:5000/api/v1/orders?limit=100"
 ```
 
 <p align="center">
-  <img src="images/idempotent-test.png" alt="Test 3 Query Limit Violation" width="700">
+  <img src="images/bad-request-2.png" alt="Test 3 Query Limit Violation" width="700">
+</p>
+
+<p align="center">
+  <img src="images/idempotent-test.png" alt="Test 3 Problem Details Payload" width="700">
 </p>
 
 **Expected output:**
@@ -1366,6 +1391,10 @@ curl -i -X POST http://localhost:5001/api/v1/orders \
   -d '{"item_id": 402, "quantity": 2, "amount": 199.00}'
 ```
 
+<p align="center">
+  <img src="images/create-order-on-port 5001.png" alt="Test 5 Stub Creates Order" width="700">
+</p>
+
 **Expected output:**
 
 ```text
@@ -1388,6 +1417,10 @@ Check that the stub also rejects an out-of-range `limit`:
 ```bash
 curl -s -o /dev/null -w "%{http_code}\n" "http://localhost:5001/api/v1/orders?limit=100"
 ```
+
+<p align="center">
+  <img src="images/out-of-range.png" alt="Test 5 Stub Rejects Out-of-Range Limit" width="700">
+</p>
 
 **Expected output:**
 
