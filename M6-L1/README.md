@@ -36,13 +36,7 @@ Before starting this lab, ensure you have:
 - **CLI Utilities:** `curl` and `jq` installed (`curl --version`, `jq --version`)
 - **Port Availability:** Host port `5000` must be free. Check with `lsof -i :5000` or `netstat -tuln | grep 5000`
 
-> [!NOTE]
-> **Architectural Callout: Header Requirement vs. Distributed De-duplication (H-02)**
-> In this lab the server enforces the *presence* and *UUID format* of the `Idempotency-Key` header as part of the OpenAPI interface contract. True de-duplication, atomic mutual exclusion locks (`SETNX`), and replay caching require an external distributed state store (Redis), which is implemented in **[Lab 02: Idempotent Write Endpoint](../M6-L2/README.md)**. Submitting two requests with the same key in this lab will validate successfully and insert two distinct records.
 
-> [!IMPORTANT]
-> **Why this lab does not use OpenAPI Generator CLI**
-> The official `openapi-generator-cli` package runs on the JVM and requires a Java runtime, which is not installed in the Poridhi VM. This lab uses `swagger-parser` to read the contract and a small generator script to emit Express stubs. The result is the same idea — code derived from the specification — without a Java dependency.
 
 ---
 
@@ -1252,9 +1246,7 @@ Content-Type: application/json; charset=utf-8
 
 > **What to Observe:** The `Location: /api/v1/orders/126` header points to a resolvable resource that returns `200 OK` with the exact committed state.
 
-> [!NOTE]
-> **Observation: Header Presence vs. Deduplication**
-> If you repeat the `POST` request using the identical `Idempotency-Key`, the server returns `201 Created` with a new `id` (`127`). This is expected in Lab 01: the OpenAPI specification validates header presence and syntax, but true distributed deduplication requires the Redis-backed locking and replay caching built in **[Lab 02: Idempotent Write Endpoint](../M6-L2/README.md)**.
+
 
 ---
 
