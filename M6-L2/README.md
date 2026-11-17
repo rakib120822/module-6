@@ -13,9 +13,7 @@ The stack is Node.js, Express, Redis 7, and Docker Compose.
   <img src="images/lab02-architecture.png" alt="Idempotent Write Endpoint Architecture: Client, Load Balancer, Node.js Server, Redis Lock and Cache, Orders Database" width="750">
 </p>
 
-## Why these tools?
 
-Node.js runs the API, Docker Compose starts Redis, and `curl`/`jq` help you test and inspect the API. Port 5000 is used by the application and port 6379 by Redis. Redis is not optional decoration here: an in-process `Map` cannot give you mutual exclusion across processes or across machines, and it cannot survive a restart. A shared key store can.
 
 | Tool | Role in this lab | Beginner explanation |
 | :--- | :--- | :--- |
@@ -85,9 +83,9 @@ The files have three jobs: Docker Compose starts Redis, `server.js` implements t
 
 ## Step 1: Initialize the Project Workspace
 
-**What you are doing:** creating an empty folder for the lab and declaring which packages the project needs.
+creating an empty folder for the lab and declaring which packages the project needs.
 
-**Why it matters:** keeping the files together makes the project easier to run, test, and share.
+keeping the files together makes the project easier to run, test, and share.
 
 Start the Poridhi VM and open VS Code, then create the project directory:
 
@@ -148,9 +146,9 @@ found 0 vulnerabilities
 
 ## Step 2: Start the Redis Key Store with Docker Compose
 
-**What you are doing:** starting Redis in a container so the idempotency middleware has somewhere to store locks and cached responses.
+starting Redis in a container so the idempotency middleware has somewhere to store locks and cached responses.
 
-**Why it matters:** Redis is what makes the lock atomic. Two requests arriving at the same moment must not both believe they own the key, and only a single shared store can decide that reliably.
+ Redis is what makes the lock atomic. Two requests arriving at the same moment must not both believe they own the key, and only a single shared store can decide that reliably.
 
 Create a file named `docker-compose.yml` with the following contents:
 
@@ -218,9 +216,9 @@ PONG
 
 ## Step 3: Implement the Idempotency Middleware and Server Stub
 
-**What you are doing:** creating the Express application that intercepts writes, coordinates them through Redis, and stores the result so a retry can be replayed instead of repeated.
+creating the Express application that intercepts writes, coordinates them through Redis, and stores the result so a retry can be replayed instead of repeated.
 
-**Why it matters:** an OpenAPI document or a route handler alone cannot make a write safe under retries. Safety comes from the middleware sequence below, and every line of it exists for a reason.
+an OpenAPI document or a route handler alone cannot make a write safe under retries. Safety comes from the middleware sequence below, and every line of it exists for a reason.
 
 Before reading the code, remember this sequence:
 
@@ -622,9 +620,9 @@ module.exports = {
 
 ## Step 4: Expose the Server via Poridhi Load Balancer
 
-**What you are doing:** starting your API and making it reachable through the Poridhi Load Balancer.
+starting your API and making it reachable through the Poridhi Load Balancer.
 
-**Why it matters:** your server listens inside the lab environment. The load balancer provides a public URL that forwards requests to that server.
+your server listens inside the lab environment. The load balancer provides a public URL that forwards requests to that server.
 
 Start the server process in the background on port 5000:
 
@@ -682,7 +680,7 @@ In these tests, compare both the HTTP status and response headers. They show whe
 
 ### Scenario 1: Primary Mutation (Cache Miss, Expected 201 Created)
 
-**What are we testing?** This is the first request with this key. Redis has no record, so the middleware acquires a lock, lets the route create the order, and saves the successful response. Look for `X-Cache: MISS`.
+This is the first request with this key. Redis has no record, so the middleware acquires a lock, lets the route create the order, and saves the successful response. Look for `X-Cache: MISS`.
 
 Submit an initial order request with `Idempotency-Key: ord_tx_1001`:
 
@@ -794,9 +792,8 @@ curl -s http://localhost:5000/api/v1/orders | jq .
 
 ### Scenario 4: Automated Concurrency and Idempotency Test Suite
 
-**What are we testing?** Instead of manually running each request, `test-idempotency.js` sends requests automatically and checks their status codes and response data. It is the formal proof of the lab's deliverable: duplicate requests produce one effect.
-
-**What is concurrency?** It means multiple requests happen at nearly the same time. Both requests in this test use the same key. The Redis lock should let one proceed and cause the other to receive 409 Conflict.
+Instead of manually running each request, `test-idempotency.js` sends requests automatically and checks their status codes and response data. It is the formal proof of the lab's deliverable: duplicate requests produce one effect.
+It means multiple requests happen at nearly the same time. Both requests in this test use the same key. The Redis lock should let one proceed and cause the other to receive 409 Conflict.
 
 This test file sends HTTP requests using JavaScript, so you do not need to type every test request manually. It checks missing-key behavior, the first successful write, retry replay, the persisted record count, and two simultaneous requests using the same key.
 
@@ -1019,7 +1016,7 @@ Total orders in DB after concurrent requests: 2
 
 ### Scenario 5: A Failed Request Does Not Poison the Key
 
-**What are we testing?** If a write fails validation, the lock must be released. Otherwise the client would be locked out of its own key for 24 hours and could never correct its mistake.
+If a write fails validation, the lock must be released. Otherwise the client would be locked out of its own key for 24 hours and could never correct its mistake.
 
 Send an invalid order using a fresh key:
 

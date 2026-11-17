@@ -10,7 +10,7 @@ Module 06 — API Design & Networking Essentials · Lab 4
 
 This lab builds a unified API platform from three services wired together with Docker Compose: Nginx as the API gateway (authentication, rate limiting, header forwarding), Express.js as the API service (OpenAPI request validation and business logic), and Redis for distributed idempotency locks and cached responses. You verify the whole system with an automated end-to-end integration test suite.
 
-**The problem we solve.** A customer posts an order, the server creates it, but the response is lost to a network fault. The client cannot tell whether the order was created, so it retries with the same idempotency key. Without protection, the server writes a second order and the customer is charged twice.
+A customer posts an order, the server creates it, but the response is lost to a network fault. The client cannot tell whether the order was created, so it retries with the same idempotency key. Without protection, the server writes a second order and the customer is charged twice.To solve this problem we use idempotency.
 
 ```http
 POST /api/v1/orders

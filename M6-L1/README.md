@@ -11,9 +11,7 @@ The stack is OpenAPI 3.0.3, the Apidevtools Swagger tooling (`swagger-cli` for v
   <img src="images/lab01-architecture.png" alt="Contract-First API Architecture Overview" width="750">
 </p>
 
-## Why these tools?
 
-OpenAPI is a language-agnostic description of an HTTP API. Writing it first forces you to agree on the request shape, the response shape, and the error format before any implementation detail can leak into the design. `swagger-cli` proves the document is valid. `swagger-parser` lets a program read the contract and emit code from it. Express supplies the running HTTP server. `curl` and `jq` let you check the result by hand.
 
 | Tool | Role in this lab |
 | --- | --- |
@@ -90,9 +88,7 @@ The contract is the single source of truth. `generate-stub.js` reads it and emit
 
 ## Step 1: Initialize the Project Workspace
 
-**What you are doing:** creating an empty folder for the lab and declaring which packages the project needs.
-
-**Why it matters:** keeping the contract, the generator, and the server together makes it obvious that the contract drives everything else.
+creating an empty folder for the lab and declaring which packages the project needs.
 
 Start the Poridhi VM and open VS Code, then create the project directory:
 
@@ -165,9 +161,8 @@ added 123 packages, and audited 124 packages in 10s
 
 ## Step 2: Define the OpenAPI 3.0.3 Contract
 
-**What you are doing:** writing the API's agreement in YAML before implementing any routes.
-
-**Why it matters:** the contract gives frontend developers, backend developers, and testers one shared description of the API. When it is wrong, everyone is wrong in the same documented way.
+writing the API's agreement in YAML before implementing any routes.
+the contract gives frontend developers, backend developers, and testers one shared description of the API. When it is wrong, everyone is wrong in the same documented way.
 
 A useful way to read the file:
 
@@ -431,9 +426,8 @@ components:
 
 ## Step 3: Validate the Contract with Swagger CLI
 
-**What you are doing:** running the specification through a validator that checks it against the OpenAPI 3 meta-schema.
-
-**Why it matters:** a malformed contract is worse than no contract, because every tool that reads it will produce a confusing error. Validation catches broken indentation, dangling `$ref` pointers, and missing required fields in seconds.
+running the specification through a validator that checks it against the OpenAPI 3 meta-schema.
+a malformed contract is worse than no contract, because every tool that reads it will produce a confusing error. Validation catches broken indentation, dangling `$ref` pointers, and missing required fields in seconds.
 
 Validate the specification:
 
@@ -490,9 +484,8 @@ rm broken.yaml
 
 ## Step 4: Generate Server Stubs from the Contract
 
-**What you are doing:** writing a generator that reads the contract and emits Express route code from it.
-
-**Why it matters:** this is the payoff of contract-first design. Change `maximum: 50` to `maximum: 100` in `openapi.yaml`, regenerate, and the enforcement code changes with it. The contract stops being documentation and becomes the source.
+writing a generator that reads the contract and emits Express route code from it.
+this is the payoff of contract-first design. Change `maximum: 50` to `maximum: 100` in `openapi.yaml`, regenerate, and the enforcement code changes with it. The contract stops being documentation and becomes the source.
 
 Create a file named `generate-stub.js` with the following contents:
 
@@ -864,9 +857,8 @@ npm run generate
 
 ## Step 5: Implement the Contract-Compliant Server
 
-**What you are doing:** writing the Express application that serves the contract with real behaviour — in-memory storage, genuine cursor pagination, and RFC 7807 error responses.
-
-**Why it matters:** the generated stub proves the contract is machine-readable. This file is what you carry into a real project, because it does the work the contract describes.
+writing the Express application that serves the contract with real behaviour — in-memory storage, genuine cursor pagination, and RFC 7807 error responses.
+the generated stub proves the contract is machine-readable. This file is what you carry into a real project, because it does the work the contract describes.
 
 The generated stub always returns example data. The server below keeps the same routes and the same validation rules, but stores orders, advances cursors, and returns real records.
 
@@ -1098,10 +1090,9 @@ module.exports = app;
 ---
 
 ## Step 6: Expose the Server via Poridhi Load Balancer
+starting your API and making it reachable through the Poridhi Load Balancer.
 
-**What you are doing:** starting your API and making it reachable through the Poridhi Load Balancer.
-
-**Why it matters:** your server listens inside the lab environment. The load balancer provides a public URL that forwards requests to that server, so the API can be tested from any browser.
+your server listens inside the lab environment. The load balancer provides a public URL that forwards requests to that server, so the API can be tested from any browser.
 
 Open a terminal and start the server process in the background on port 5000:
 
@@ -1273,7 +1264,7 @@ Content-Type: application/json; charset=utf-8
 
 ### Scenario 3: Query Parameter Limit Out of Bounds (Expected 400 Bad Request)
 
-**What are we testing?** The contract allows a page size from 1 to 50. We deliberately ask for 100, so the server should return a clear 400 Bad Request instead of accepting the invalid value.
+The contract allows a page size from 1 to 50. We deliberately ask for 100, so the server should return a clear 400 Bad Request instead of accepting the invalid value.
 
 Query `/api/v1/orders` with `limit=100`, exceeding the contract maximum of 50:
 
@@ -1374,7 +1365,7 @@ curl -s "http://localhost:5000/api/v1/orders?limit=3&cursor=103" | jq .
 
 ### Scenario 5: The Generated Stub Enforces the Same Contract (Expected 201 Created)
 
-**What are we testing?** The stub in Step 4 was written by a generator, not by hand. It should behave identically to the hand-written server on the rules the contract defines.
+The stub in Step 4 was written by a generator, not by hand. It should behave identically to the hand-written server on the rules the contract defines.
 
 Start the generated stub on a different port so it does not collide with the running server:
 
@@ -1440,7 +1431,7 @@ kill %2 2>/dev/null || pkill -f "node server.generated.js"
 
 ### Scenario 6: Automated Contract Validation Test Suite
 
-**What are we testing?** Instead of manually running each request, `test.js` sends several requests automatically and checks their status codes and response data.
+Instead of manually running each request, `test.js` sends several requests automatically and checks their status codes and response data.
 
 The script starts the Express app on a temporary port, runs the checks, and closes the test server when finished.
 
